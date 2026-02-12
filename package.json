@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "elysia": "^1.4.25",
     "nanoid": "^5.1.6",
     "next": "16.1.6",
     "react": "19.2.3",
