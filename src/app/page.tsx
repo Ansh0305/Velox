@@ -1,7 +1,7 @@
 "use client"
 
 import { nanoid } from "nanoid";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const ANIMALS = ["wolf", "bear", "tiger", "lion", "elephant"]
 const STORAGE_KEY = "chat_username"
@@ -13,6 +13,21 @@ const generateUsername = () => {
 
 export default function Home() {
   const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    const main = () => {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        setUsername(stored)
+        return
+      }
+
+      const generated = generateUsername()
+      localStorage.setItem(STORAGE_KEY, generated)
+      setUsername(generated)
+    }
+    main()
+  }, [])
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
