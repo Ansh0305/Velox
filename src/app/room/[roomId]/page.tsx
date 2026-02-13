@@ -6,10 +6,23 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
 import {format} from "date-fns"
+import { useRealtime } from "@/lib/realtime-client";
 
 const Page = () => {
   const params = useParams();
   const roomId = params.roomId as string;
+
+  // Input message Tracking
+  const [input, setinput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const { data: messages, refetch } = useQuery({
+    queryKey: ["messages", roomId],
+    queryFn: async () => {
+      const res = await client.messages.get({ query: { roomId } });
+      return res.data;
+    },
+  });
 
   // Copy button
   const [copyStatus, setcopyStatus] = useState("COPY");
@@ -22,6 +35,7 @@ const Page = () => {
     }, 2000);
   };
 
+  // sending message
   const { username } = useUsername();
   const { mutate: sendMessage, isPending } = useMutation({
     mutationFn: async ({ text }: { text: string }) => {
@@ -29,6 +43,18 @@ const Page = () => {
         { sender: username, text },
         { query: { roomId } },
       );
+      setinput("");
+    },
+  });
+
+  // Realtime listener for this room — refetch messages when a new message is broadcast
+  useRealtime({
+    channels: [roomId],
+    events: ["chat.message", "chat.destroy"],
+    onData: ({ event }) => {
+      if (event === "chat.message") {
+        refetch();
+      }
     },
   });
 
@@ -41,17 +67,6 @@ const Page = () => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
-  // Input message Tracking
-  const [input, setinput] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const { data: messages } = useQuery({
-    queryKey: ["messages", roomId],
-    queryFn: async () => {
-      const res = await client.messages.get({ query: { roomId } });
-      return res.data;
-    },
-  });
   return (
     <main className="flex flex-col h-screen max-h-screen overflow-hidden">
       <header className="border-b border-zinc-800 p-4 flex items-center justify-between bg-zinc-900/50">
@@ -159,6 +174,6 @@ const Page = () => {
       </div>
     </main>
   );
-};
+};;
 
 export default Page;
