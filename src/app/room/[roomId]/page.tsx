@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const Page = () => {
   const params = useParams();
@@ -26,6 +26,10 @@ const Page = () => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
+
+  // Input message Tracking
+  const [input, setinput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
     <main className="flex flex-col h-screen max-h-screen overflow-hidden">
       <header className="border-b border-zinc-800 p-4 flex items-center justify-between bg-zinc-900/50">
@@ -73,11 +77,22 @@ const Page = () => {
             <input
               autoFocus
               type="text"
+              value={input}
+              onKeyDown={(e) =>{
+                if(e.key === "Enter" && input.trim()) {
+                  // Send message
+                  inputRef.current?.focus()
+                }
+              }}
+              placeholder="Type message..."
+              onChange={(e) => setinput(e.target.value)}
               className="w-full bg-black border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-8 text-sm"
             />
           </div>
 
-          <button className="bg-zinc-800 text-zinc-400 px-6 text-sm font-bold hover:text-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">SEND</button>
+          <button className="bg-zinc-800 text-zinc-400 px-6 text-sm font-bold hover:text-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+            SEND
+          </button>
         </div>
       </div>
     </main>
