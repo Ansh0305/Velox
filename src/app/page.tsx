@@ -15,8 +15,6 @@ const Page = () => {
 }
 
 export default Page;
-
-
 function Lobby() {
   const { username } = useUsername();
   const router = useRouter();
