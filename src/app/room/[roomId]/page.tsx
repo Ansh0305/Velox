@@ -1,5 +1,8 @@
 "use client";
 
+import { useUsername } from "@/hooks/use-username";
+import { client } from "@/lib/client";
+import { useMutation } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
 
@@ -17,6 +20,13 @@ const Page = () => {
       setcopyStatus("COPY");
     }, 2000);
   };
+
+  const {username} = useUsername();
+  const {mutate: sendMessage} = useMutation({
+    mutationFn: async ({text}: {text: string}) => {
+      await client.messages.post({sender: username, text}, {query: {roomId} })
+    }
+  })
 
   // Remaininig Time
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
