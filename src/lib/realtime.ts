@@ -3,7 +3,7 @@ import { redis } from "@/lib/redis";
 import z from "zod";
 
 const message = z.object({
-  id: z.object(),
+  id: z.string(),
   sender: z.string(),
   text: z.string(),
   timestamp: z.number(),
