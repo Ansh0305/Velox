@@ -4,7 +4,7 @@ import { useUsername } from "@/hooks/use-username";
 import { client } from "@/lib/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {format} from "date-fns"
 import { useRealtime } from "@/lib/realtime-client";
 
@@ -64,6 +64,22 @@ const Page = () => {
 
   // Remaininig Time
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+
+  const {data: ttlData} = useQuery({
+    queryKey: ["ttl", roomId],
+    queryFn: async () => {
+      const res = await client.room.ttl.get({
+        query: {roomId}
+      })
+      return res.data
+    }
+  })
+
+  useEffect(() => {
+    if (ttlData?.ttl !== undefined) {
+      setTimeRemaining(ttlData.ttl)
+    }
+  }, [ttlData])
 
   function formatTimeRemaining(seconds: number) {
     const mins = Math.floor(seconds / 60);
