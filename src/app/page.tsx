@@ -4,13 +4,13 @@ import { useUsername } from "@/hooks/use-username";
 import { client } from "@/lib/client";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 
 const Page = () => {
   return (
-   <Suspense>
-    <Lobby />
-   </Suspense>
+    <Suspense>
+      <Lobby />
+    </Suspense>
   )
 }
 
@@ -22,6 +22,16 @@ function Lobby() {
   const searchParams = useSearchParams();
   const wasDestroyed = searchParams.get("destroyed") === "true";
   const error = searchParams.get("error");
+
+  // Auto-clear status banners from URL after 3s
+  useEffect(() => {
+    if (wasDestroyed || error) {
+      const timeout = setTimeout(() => {
+        router.replace("/");
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [wasDestroyed, error, router]);
 
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
