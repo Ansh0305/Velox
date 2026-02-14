@@ -17,6 +17,18 @@ const schema = {
     destroy: z.object({
       isDestroyed: z.literal(true),
     }),
+    // Typing indicator event
+    typing: z.object({
+      sender: z.string(),
+      isTyping: z.boolean(),
+    }),
+    // Join/Leave notification events
+    join: z.object({
+      sender: z.string(),
+    }),
+    leave: z.object({
+      sender: z.string(),
+    }),
   },
 };
 
