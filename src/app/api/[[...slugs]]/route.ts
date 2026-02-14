@@ -40,7 +40,7 @@ const rooms = new Elysia({ prefix: "/room" })
       redis.del(`messages:${auth.roomId}`),
     ])
   }, {
-    query: z.object({roomId: z.string()})
+    query: z.object({ roomId: z.string() })
   });
 
 const messages = new Elysia({ prefix: "/messages" })
@@ -104,7 +104,23 @@ const messages = new Elysia({ prefix: "/messages" })
     { query: z.object({ roomId: z.string() }) },
   );
 
-const app = new Elysia({ prefix: "/api" }).use(rooms).use(messages);
+// Typing indicator
+const typing = new Elysia({ prefix: "/typing" })
+  .use(authMiddleware)
+  .post(
+    "/",
+    async ({ body, auth }) => {
+      await realtime
+        .channel(auth.roomId)
+        .emit("chat.typing", { sender: body.sender, isTyping: true });
+    },
+    {
+      query: z.object({ roomId: z.string() }),
+      body: z.object({ sender: z.string().max(100) }),
+    },
+  );
+
+const app = new Elysia({ prefix: "/api" }).use(rooms).use(messages).use(typing);
 
 export const GET = app.fetch;
 export const POST = app.fetch;
