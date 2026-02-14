@@ -22,6 +22,13 @@ const schema = {
       sender: z.string(),
       isTyping: z.boolean(),
     }),
+    // Join/Leave notification events
+    join: z.object({
+      sender: z.string(),
+    }),
+    leave: z.object({
+      sender: z.string(),
+    }),
   },
 };
 
