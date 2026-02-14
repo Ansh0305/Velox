@@ -45,6 +45,9 @@ function Lobby() {
   // Selected self-destruct timer
   const [selectedTTL, setSelectedTTL] = useState(60 * 10);
 
+  // Join room by code
+  const [roomCode, setRoomCode] = useState("");
+
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
       const res = await client.room.create.post({ ttl: selectedTTL });
@@ -144,6 +147,35 @@ function Lobby() {
             >
               CREATE SECURE ROOM
             </button>
+          </div>
+        </div>
+
+        {/* Join room by code */}
+        <div className="border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur-md">
+          <div className="space-y-3">
+            <label className="flex items-center text-zinc-500">
+              Join Existing Room
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 animate-pulse text-sm">{">"}</span>
+                <input
+                  type="text"
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && roomCode.trim() && router.push(`/room/${roomCode.trim()}`)}
+                  placeholder="Paste room code..."
+                  className="w-full bg-zinc-950 border border-zinc-800 p-3 pl-7 text-sm text-zinc-300 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 transition-colors"
+                />
+              </div>
+              <button
+                onClick={() => roomCode.trim() && router.push(`/room/${roomCode.trim()}`)}
+                disabled={!roomCode.trim()}
+                className="bg-zinc-100 text-black px-4 py-3 text-sm font-bold hover:bg-zinc-50 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                JOIN
+              </button>
+            </div>
           </div>
         </div>
       </div>
