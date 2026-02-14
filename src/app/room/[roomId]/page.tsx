@@ -207,6 +207,18 @@ const Page = () => {
                 : "--:--"}
             </span>
           </div>
+          <div className="h-8 w-px bg-zinc-800" />
+          {/* Encryption indicator */}
+          <div className="flex flex-col">
+            <span className="text-xs text-zinc-500 uppercase">Security</span>
+            <span className="text-sm font-bold text-green-500 flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              🔒 ENCRYPTED
+            </span>
+          </div>
         </div>
 
         {/* Leave and Destroy buttons */}
@@ -267,8 +279,10 @@ const Page = () => {
                       {item.sender === username ? "YOU" : item.sender}
                     </span>
 
-                    <span className="text-[10px] text-zinc-600">
+                    <span className="text-[10px] text-zinc-600 flex items-center gap-1">
                       {format(item.timestamp, "HH:mm")}
+                      {/* Encrypted message indicator */}
+                      <span title="End-to-end encrypted">🔒</span>
                     </span>
                   </div>
 
