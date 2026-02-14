@@ -4,8 +4,8 @@ import { useUsername } from "@/hooks/use-username";
 import { client } from "@/lib/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import {format} from "date-fns"
+import { useCallback, useEffect, useRef, useState } from "react";
+import { format } from "date-fns"
 import { useRealtime } from "@/lib/realtime-client";
 
 const Page = () => {
@@ -48,34 +48,57 @@ const Page = () => {
     },
   });
 
+  // Typing indicator state
+  const [typingUser, setTypingUser] = useState<string | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTypingEmitRef = useRef<number>(0);
+
+  // Emit typing event (throttled to once per 2s)
+  const emitTyping = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current < 2000) return;
+    lastTypingEmitRef.current = now;
+    client.typing.post({ sender: username }, { query: { roomId } });
+  }, [username, roomId]);
+
   // Realtime listener for this room — refetch messages when a new message is broadcast
   useRealtime({
     channels: [roomId],
-    events: ["chat.message", "chat.destroy"],
-    onData: ({ event }) => {
+    events: ["chat.message", "chat.destroy", "chat.typing"],
+    onData: ({ event, data }) => {
       if (event === "chat.message") {
         refetch();
+        setTypingUser(null);
       }
       if (event === 'chat.destroy') {
         router.push("/?destroyed=true")
       }
+      // Typing indicator from another user
+      if (event === "chat.typing") {
+        const payload = data as { sender: string; isTyping: boolean };
+        if (payload.sender !== username) {
+          setTypingUser(payload.sender);
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2000);
+        }
+      }
     },
   });
 
-  const {mutate: destroyRoom} = useMutation({
+  const { mutate: destroyRoom } = useMutation({
     mutationFn: async () => {
-      await client.room.delete(null, {query: {roomId}})
+      await client.room.delete(null, { query: { roomId } })
     }
   })
 
   // Remaininig Time
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
-  const {data: ttlData} = useQuery({
+  const { data: ttlData } = useQuery({
     queryKey: ["ttl", roomId],
     queryFn: async () => {
       const res = await client.room.ttl.get({
-        query: {roomId}
+        query: { roomId }
       })
       return res.data
     }
@@ -89,22 +112,22 @@ const Page = () => {
 
 
   useEffect(() => {
-      if (timeRemaining === null || timeRemaining < 0) return
-      if (timeRemaining === 0) {
-        router.push("/?destroyed=true")
-        return
-      }
+    if (timeRemaining === null || timeRemaining < 0) return
+    if (timeRemaining === 0) {
+      router.push("/?destroyed=true")
+      return
+    }
 
-      const interval = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(interval)
-            return 0
-          }
-          return prev - 1;
-        })
-      }, 1000)
-      return () => clearInterval(interval)
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return prev - 1;
+      })
+    }, 1000)
+    return () => clearInterval(interval)
   }, [timeRemaining, router])
 
   function formatTimeRemaining(seconds: number) {
@@ -164,9 +187,8 @@ const Page = () => {
             <div className="max-w-[80%] group">
               <div className="flex items-baseline gap-3 mb-1">
                 <span
-                  className={`text-xs font-bold ${
-                    msg.sender === username ? "text-green-500" : "text-blue-500"
-                  }`}
+                  className={`text-xs font-bold ${msg.sender === username ? "text-green-500" : "text-blue-500"
+                    }`}
                 >
                   {msg.sender === username ? "YOU" : msg.sender}
                 </span>
@@ -185,6 +207,17 @@ const Page = () => {
       </div>
 
       <div className="p-4 border-t border-zinc-800 bg-zinc-900/50">
+        {/* Typing indicator */}
+        {typingUser && (
+          <div className="flex items-center gap-2 pb-2 text-xs text-zinc-500">
+            <span className="flex gap-0.5">
+              <span className="animate-typing-dot w-1 h-1 bg-green-500 rounded-full" />
+              <span className="animate-typing-dot w-1 h-1 bg-green-500 rounded-full [animation-delay:0.2s]" />
+              <span className="animate-typing-dot w-1 h-1 bg-green-500 rounded-full [animation-delay:0.4s]" />
+            </span>
+            <span>{typingUser} is typing...</span>
+          </div>
+        )}
         <div className="flex gap-4">
           <div className="flex-1 relative group">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 animate-pulse">
@@ -201,7 +234,11 @@ const Page = () => {
                 }
               }}
               placeholder="Type message..."
-              onChange={(e) => setinput(e.target.value)}
+              onChange={(e) => {
+                setinput(e.target.value);
+                // Emit typing event on input change
+                if (e.target.value.trim()) emitTyping();
+              }}
               className="w-full bg-black border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-8 text-sm"
             />
           </div>
