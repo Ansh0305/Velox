@@ -4,7 +4,7 @@ import { useUsername } from "@/hooks/use-username";
 import { client } from "@/lib/client";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 const Page = () => {
   return (
@@ -15,6 +15,15 @@ const Page = () => {
 }
 
 export default Page;
+
+// Timer presets
+const TIMER_OPTIONS = [
+  { label: "5 MIN", value: 60 * 5 },
+  { label: "10 MIN", value: 60 * 10 },
+  { label: "30 MIN", value: 60 * 30 },
+  { label: "1 HOUR", value: 60 * 60 },
+];
+
 function Lobby() {
   const { username } = useUsername();
   const router = useRouter();
@@ -34,9 +43,12 @@ function Lobby() {
     }
   }, [wasDestroyed, wasLeft, error, router]);
 
+  // Selected self-destruct timer
+  const [selectedTTL, setSelectedTTL] = useState(60 * 10);
+
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
-      const res = await client.room.create.post();
+      const res = await client.room.create.post({ ttl: selectedTTL });
       if (res.status === 200) {
         router.push(`/room/${res.data?.roomId}`);
       }
@@ -106,6 +118,27 @@ function Lobby() {
               </div>
             </div>
 
+            {/* Self-destruct timer selection */}
+            <div className="space-y-2">
+              <label className="flex items-center text-zinc-500">
+                Self-Destruct Timer
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {TIMER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSelectedTTL(opt.value)}
+                    className={`p-2 text-xs font-bold transition-all cursor-pointer border ${selectedTTL === opt.value
+                        ? "bg-zinc-100 text-black border-zinc-100"
+                        : "bg-zinc-950 text-zinc-500 border-zinc-800 hover:border-zinc-600 hover:text-zinc-300"
+                      }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={() => createRoom()}
               className="w-full bg-zinc-100 text-black p-3 text-sm font-bold hover:bg-zinc-50 hover:text-black transition-colors mt-2 cursor-pointer disabled:opacity-50"
@@ -118,3 +151,4 @@ function Lobby() {
     </main>
   );
 }
+
