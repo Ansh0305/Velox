@@ -21,17 +21,18 @@ function Lobby() {
 
   const searchParams = useSearchParams();
   const wasDestroyed = searchParams.get("destroyed") === "true";
+  const wasLeft = searchParams.get("left") === "true";
   const error = searchParams.get("error");
 
   // Auto-clear status banners from URL after 3s
   useEffect(() => {
-    if (wasDestroyed || error) {
+    if (wasDestroyed || wasLeft || error) {
       const timeout = setTimeout(() => {
         router.replace("/");
       }, 3000);
       return () => clearTimeout(timeout);
     }
-  }, [wasDestroyed, error, router]);
+  }, [wasDestroyed, wasLeft, error, router]);
 
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
@@ -50,6 +51,15 @@ function Lobby() {
             <p className="text-red-500 text-sm font-bold">ROOM DESTROYED</p>
             <p className="text-zinc-500 text-xs mt-1">
               All messages were permanently deleted!
+            </p>
+          </div>
+        )}
+        {/* Left Room */}
+        {wasLeft && (
+          <div className="bg-zinc-900/50 border border-zinc-700 p-4 text-center">
+            <p className="text-zinc-300 text-sm font-bold">LEFT ROOM</p>
+            <p className="text-zinc-500 text-xs mt-1">
+              You have left the room!
             </p>
           </div>
         )}
