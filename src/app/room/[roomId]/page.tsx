@@ -214,7 +214,7 @@ const Page = () => {
           <button
             onClick={() => {
               client.presence.leave.post({ sender: username }, { query: { roomId } });
-              router.push("/");
+              router.push("/?left=true");
             }}
             className="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all flex items-center gap-2"
           >
