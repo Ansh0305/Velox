@@ -179,12 +179,12 @@ const Page = () => {
 
   return (
     <main className="flex flex-col h-screen max-h-screen overflow-hidden">
-      <header className="border-b border-zinc-800 p-4 flex items-center justify-between bg-zinc-900/50">
-        <div className="flex items-center gap-4">
+      <header className="border-b border-zinc-800 p-3 flex items-center justify-between gap-3 bg-zinc-900/50">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex flex-col">
             <span className="text-xs text-zinc-500 uppercase">Room ID</span>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-green-500">{roomId}</span>
+              <span className="font-bold text-green-500 text-sm truncate max-w-[100px] sm:max-w-[150px] md:max-w-none">{roomId}</span>
               <button
                 onClick={copyLink}
                 className="text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
@@ -221,19 +221,19 @@ const Page = () => {
         </div>
 
         {/* Leave and Destroy buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => {
               client.presence.leave.post({ sender: username }, { query: { roomId } });
               router.push("/?left=true");
             }}
-            className="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all flex items-center gap-2"
+            className="text-xs bg-zinc-800 hover:bg-zinc-700 px-2 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all flex items-center gap-1"
           >
-            LEAVE
+            <span className="hidden sm:inline">LEAVE</span>
             <span>🚪</span>
           </button>
-          <button onClick={() => destroyRoom()} className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-50">
-            DESTROY NOW
+          <button onClick={() => destroyRoom()} className="text-xs bg-zinc-800 hover:bg-red-600 px-2 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-1 disabled:opacity-50">
+            <span className="hidden sm:inline">DESTROY</span>
             <span className="group-hover:animate-pulse">💥</span>
           </button>
         </div>
@@ -304,7 +304,7 @@ const Page = () => {
             <span>{typingUser} is typing...</span>
           </div>
         )}
-        <div className="flex gap-4">
+        <div className="flex gap-2 sm:gap-4">
           <div className="flex-1 relative group">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 animate-pulse">
               {">"}
