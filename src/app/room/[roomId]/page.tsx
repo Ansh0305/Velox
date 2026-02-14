@@ -28,8 +28,7 @@ const Page = () => {
   // Copy button
   const [copyStatus, setcopyStatus] = useState("COPY");
   const copyLink = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(roomId);
     setcopyStatus("COPIED!");
     setTimeout(() => {
       setcopyStatus("COPY");
