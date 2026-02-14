@@ -120,7 +120,35 @@ const typing = new Elysia({ prefix: "/typing" })
     },
   );
 
-const app = new Elysia({ prefix: "/api" }).use(rooms).use(messages).use(typing);
+// Presence (join/leave notifications)
+const presence = new Elysia({ prefix: "/presence" })
+  .use(authMiddleware)
+  .post(
+    "/join",
+    async ({ body, auth }) => {
+      await realtime
+        .channel(auth.roomId)
+        .emit("chat.join", { sender: body.sender });
+    },
+    {
+      query: z.object({ roomId: z.string() }),
+      body: z.object({ sender: z.string().max(100) }),
+    },
+  )
+  .post(
+    "/leave",
+    async ({ body, auth }) => {
+      await realtime
+        .channel(auth.roomId)
+        .emit("chat.leave", { sender: body.sender });
+    },
+    {
+      query: z.object({ roomId: z.string() }),
+      body: z.object({ sender: z.string().max(100) }),
+    },
+  );
+
+const app = new Elysia({ prefix: "/api" }).use(rooms).use(messages).use(typing).use(presence);
 
 export const GET = app.fetch;
 export const POST = app.fetch;
