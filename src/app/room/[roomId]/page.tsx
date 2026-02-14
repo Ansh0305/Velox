@@ -61,10 +61,31 @@ const Page = () => {
     client.typing.post({ sender: username }, { query: { roomId } });
   }, [username, roomId]);
 
+  // Join/Leave system messages
+  const [systemMessages, setSystemMessages] = useState<{ id: string; text: string; timestamp: number }[]>([]);
+  const hasJoinedRef = useRef(false);
+
+  // Emit join event on mount
+  useEffect(() => {
+    if (!username || hasJoinedRef.current) return;
+    hasJoinedRef.current = true;
+    client.presence.join.post({ sender: username }, { query: { roomId } });
+
+    // Emit leave event on page unload
+    const handleBeforeUnload = () => {
+      navigator.sendBeacon?.(
+        `/api/presence/leave?roomId=${roomId}`,
+        new Blob([JSON.stringify({ sender: username })], { type: "application/json" })
+      );
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [username, roomId]);
+
   // Realtime listener for this room — refetch messages when a new message is broadcast
   useRealtime({
     channels: [roomId],
-    events: ["chat.message", "chat.destroy", "chat.typing"],
+    events: ["chat.message", "chat.destroy", "chat.typing", "chat.join", "chat.leave"],
     onData: ({ event, data }) => {
       if (event === "chat.message") {
         refetch();
@@ -80,6 +101,27 @@ const Page = () => {
           setTypingUser(payload.sender);
           if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
           typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2000);
+        }
+      }
+      // Join/Leave notifications
+      if (event === "chat.join") {
+        const payload = data as { sender: string };
+        if (payload.sender !== username) {
+          setSystemMessages((prev) => [...prev, {
+            id: `join-${Date.now()}`,
+            text: `${payload.sender} joined the room`,
+            timestamp: Date.now(),
+          }]);
+        }
+      }
+      if (event === "chat.leave") {
+        const payload = data as { sender: string };
+        if (payload.sender !== username) {
+          setSystemMessages((prev) => [...prev, {
+            id: `leave-${Date.now()}`,
+            text: `${payload.sender} left the room`,
+            timestamp: Date.now(),
+          }]);
         }
       }
     },
@@ -167,14 +209,27 @@ const Page = () => {
           </div>
         </div>
 
-        <button onClick={() => destroyRoom()} className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-50">
-          DESTROY NOW
-          <span className="group-hover:animate-pulse">💥</span>
-        </button>
+        {/* Leave and Destroy buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              client.presence.leave.post({ sender: username }, { query: { roomId } });
+              router.push("/");
+            }}
+            className="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all flex items-center gap-2"
+          >
+            LEAVE
+            <span>🚪</span>
+          </button>
+          <button onClick={() => destroyRoom()} className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-50">
+            DESTROY NOW
+            <span className="group-hover:animate-pulse">💥</span>
+          </button>
+        </div>
       </header>
       {/* Rendering Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
-        {messages?.messages?.length === 0 && (
+        {messages?.messages?.length === 0 && systemMessages.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-zinc-600 text-sm font-mono">
               No messages yet, start the conversation
@@ -182,28 +237,48 @@ const Page = () => {
           </div>
         )}
 
-        {messages?.messages?.map((msg) => (
-          <div key={msg.id} className="flex flex-col items-start">
-            <div className="max-w-[80%] group">
-              <div className="flex items-baseline gap-3 mb-1">
-                <span
-                  className={`text-xs font-bold ${msg.sender === username ? "text-green-500" : "text-blue-500"
-                    }`}
-                >
-                  {msg.sender === username ? "YOU" : msg.sender}
-                </span>
+        {/* Merge chat messages and system messages, sorted by timestamp */}
+        {[
+          ...(messages?.messages?.map((msg) => ({ type: "chat" as const, ...msg })) ?? []),
+          ...systemMessages.map((sys) => ({ type: "system" as const, ...sys, sender: "" })),
+        ]
+          .sort((a, b) => a.timestamp - b.timestamp)
+          .map((item) => {
+            // System message (join/leave)
+            if (item.type === "system") {
+              return (
+                <div key={item.id} className="flex justify-center">
+                  <span className="text-[10px] text-zinc-600 bg-zinc-900/50 px-3 py-1 rounded-full">
+                    {item.text}
+                  </span>
+                </div>
+              );
+            }
 
-                <span className="text-[10px] text-zinc-600">
-                  {format(msg.timestamp, "HH:mm")}
-                </span>
+            // Regular chat message
+            return (
+              <div key={item.id} className="flex flex-col items-start">
+                <div className="max-w-[80%] group">
+                  <div className="flex items-baseline gap-3 mb-1">
+                    <span
+                      className={`text-xs font-bold ${item.sender === username ? "text-green-500" : "text-blue-500"
+                        }`}
+                    >
+                      {item.sender === username ? "YOU" : item.sender}
+                    </span>
+
+                    <span className="text-[10px] text-zinc-600">
+                      {format(item.timestamp, "HH:mm")}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-zinc-300 leading-relaxed break-all">
+                    {item.text}
+                  </p>
+                </div>
               </div>
-
-              <p className="text-sm text-zinc-300 leading-relaxed break-all">
-                {msg.text}
-              </p>
-            </div>
-          </div>
-        ))}
+            );
+          })}
       </div>
 
       <div className="p-4 border-t border-zinc-800 bg-zinc-900/50">
