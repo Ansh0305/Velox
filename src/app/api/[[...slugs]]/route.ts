@@ -6,18 +6,25 @@ import { z } from "zod";
 import { Message, realtime } from "@/lib/realtime";
 
 const ROOM_TTL_SECONDS = 60 * 10;
+// Allowed self-destruct timer options (in seconds)
+const ALLOWED_TTL = [60 * 5, 60 * 10, 60 * 30, 60 * 60];
 
 const rooms = new Elysia({ prefix: "/room" })
-  .post("/create", async () => {
+  .post("/create", async ({ body }) => {
     const roomId = nanoid();
+
+    // Custom TTL from body, fallback to default
+    const ttl = body?.ttl && ALLOWED_TTL.includes(body.ttl) ? body.ttl : ROOM_TTL_SECONDS;
 
     await redis.hset(`meta:${roomId}`, {
       connected: [],
       createAt: Date.now(),
     });
 
-    await redis.expire(`meta:${roomId}`, ROOM_TTL_SECONDS);
+    await redis.expire(`meta:${roomId}`, ttl);
     return { roomId };
+  }, {
+    body: z.object({ ttl: z.number().optional() }).optional(),
   })
   .use(authMiddleware)
   .get(
