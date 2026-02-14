@@ -18,10 +18,9 @@ export default Page;
 
 // Timer presets
 const TIMER_OPTIONS = [
+  { label: "2 MIN", value: 60 * 2 },
   { label: "5 MIN", value: 60 * 5 },
   { label: "10 MIN", value: 60 * 10 },
-  { label: "30 MIN", value: 60 * 30 },
-  { label: "1 HOUR", value: 60 * 60 },
 ];
 
 function Lobby() {
@@ -123,14 +122,14 @@ function Lobby() {
               <label className="flex items-center text-zinc-500">
                 Self-Destruct Timer
               </label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {TIMER_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setSelectedTTL(opt.value)}
                     className={`p-2 text-xs font-bold transition-all cursor-pointer border ${selectedTTL === opt.value
-                        ? "bg-zinc-100 text-black border-zinc-100"
-                        : "bg-zinc-950 text-zinc-500 border-zinc-800 hover:border-zinc-600 hover:text-zinc-300"
+                      ? "bg-zinc-100 text-black border-zinc-100"
+                      : "bg-zinc-950 text-zinc-500 border-zinc-800 hover:border-zinc-600 hover:text-zinc-300"
                       }`}
                   >
                     {opt.label}

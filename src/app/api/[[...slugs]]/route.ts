@@ -7,7 +7,7 @@ import { Message, realtime } from "@/lib/realtime";
 
 const ROOM_TTL_SECONDS = 60 * 10;
 // Allowed self-destruct timer options (in seconds)
-const ALLOWED_TTL = [60 * 5, 60 * 10, 60 * 30, 60 * 60];
+const ALLOWED_TTL = [60 * 2, 60 * 5, 60 * 10];
 
 const rooms = new Elysia({ prefix: "/room" })
   .post("/create", async ({ body }) => {
