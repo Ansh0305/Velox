@@ -24,9 +24,19 @@ export const authMiddleware = new Elysia({
     const { query, cookie, headers } = context;
     const roomId = query.roomId as string | undefined;
 
-    // Headers can be incoming in different formats depending on the environment
-    const headerKey = (headers as Record<string, any>)["x-room-key"];
-    const headerToken = (headers as Record<string, any>)["x-auth-token"];
+    // Safe header access helper
+    const getHeader = (key: string): string | undefined => {
+      if (!headers) return undefined;
+      // Check if it's a Headers object (e.g. in some edge runtimes)
+      if (typeof (headers as any).get === "function") {
+        return (headers as any).get(key) || undefined;
+      }
+      // Otherwise treat as standard object
+      return (headers as Record<string, any>)[key];
+    };
+
+    const headerKey = getHeader("x-room-key");
+    const headerToken = getHeader("x-auth-token");
 
     const roomKey = (headerKey || query.key) as string | undefined;
     const token = (headerToken || cookie["x-auth-token"]?.value) as string | undefined;
