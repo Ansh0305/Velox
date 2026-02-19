@@ -1,9 +1,10 @@
 # ⚡ Velox
 
-**A private, self-destructing real-time chat application.**
+**Zero-Knowledge, End-to-End Encrypted, Self-Destructing Chat.**
 
-Create anonymous, encrypted chat rooms that automatically destroy themselves — along with every message — when the timer runs out. No accounts. No logs. No trace.
+Velox is a secure communication tool designed for absolute privacy. Rooms are ephemeral, identities are anonymous, and messages are encrypted on your device before they ever touch our servers. We cannot read your messages even if we wanted to.
 
+![E2E Encrypted](https://img.shields.io/badge/Security-E2E_Encrypted-green?logo=letsencrypt)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?logo=tailwind-css)
@@ -13,14 +14,34 @@ Create anonymous, encrypted chat rooms that automatically destroy themselves —
 
 ## ✨ Features
 
-- **🔒 Self-Destructing Rooms** — Choose a 2, 5, or 10-minute timer. When it hits zero, the room and all messages are permanently erased.
-- **👻 Anonymous Identities** — Auto-generated anonymous usernames (`anonymous-wolf-x3k9a`). No signup required.
-- **⚡ Real-Time Messaging** — Powered by Upstash Realtime for instant message delivery.
-- **✍️ Typing Indicators** — See when the other person is typing, in real-time.
-- **🚪 Presence Notifications** — Join/leave events are broadcast to all participants.
-- **📋 Room Sharing** — Share the room code with anyone to let them join instantly.
-- **💥 Instant Destroy** — Manually nuke the room at any time. All data is wiped immediately.
-- **🍪 Token-Based Auth** — Cookie-based session tokens validate room membership per-request.
+- **🔒 End-to-End Encryption (E2EE)** — Messages are encrypted with AES-GCM (256-bit) using a key derived from the room invite. The server only stores ciphertext.
+- **💣 Self-Destructing Rooms** — Set a timer (2, 5, or 10 minutes). When it expires, the room and all data are permanently wiped from Redis.
+- **👻 Truly Anonymous** — No accounts, no emails, no logs. auto-generated identities (e.g., `anonymous-wolf`).
+- **🛡️ IDOR-Proof Access Control** — Access is strictly controlled via cryptographically secure keys. Knowing a Room ID is not enough to join.
+- **⚡ Real-Time** — Instant message delivery via Upstash Realtime (Server-Sent Events).
+- **📋 Smart Invites** — Share a single link that contains the secure key. Special `VEL-` codes allow safe manual entry.
+
+---
+
+## 🔐 Security Architecture
+
+Velox follows a **Zero-Knowledge** architecture. Here is how we secure your data:
+
+1.  **Room Creation**:
+    *   The server generates a `RoomID` (nanoid) and a cryptographically secure, random 32-character `RoomKey`.
+    *   The server also generates a unique random `Salt`.
+    *   The `RoomKey` is sent **only** to the creator. The server stores a hash/metadata but does NOT use this key for encryption.
+
+2.  **Joining**:
+    *   To join, you must possess the `RoomKey` (embedded in the link or invite code).
+    *   The browser requests the `Salt` from the server using the `RoomKey` for authentication.
+    *   **Client-Side Derivation**: Your browser uses PBKDF2 (150,000 iterations) to mix the `RoomKey` + `Salt` into a **derived Encryption Key**.
+    *   This Encryption Key **never leaves your device**.
+
+3.  **Messaging**:
+    *   **Encryption**: Messages are encrypted locally using AES-GCM with a unique, random 12-byte IV (Initialization Vector) for *every* message.
+    *   **Transport**: The server receives only `iv:ciphertext`. It cannot decrypt this.
+    *   **Decryption**: Other participants (who also derived the key client-side) decrypt the message locally.
 
 ---
 
@@ -30,12 +51,11 @@ Create anonymous, encrypted chat rooms that automatically destroy themselves —
 | ------------ | ------------------------------------------------------------------- |
 | **Framework**    | [Next.js 16](https://nextjs.org) (App Router)                      |
 | **Language**     | [TypeScript](https://www.typescriptlang.org)                       |
+| **Security**     | [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) (Native Browser Encryption)|
+| **API**          | [Elysia](https://elysiajs.com) (Type-safe API backend)             |
+| **Database**     | [Upstash Redis](https://upstash.com) (Serverless, TTL expiry)      |
+| **Realtime**     | [Upstash Realtime](https://upstash.com) (SSE)                      |
 | **Styling**      | [Tailwind CSS v4](https://tailwindcss.com)                         |
-| **API**          | [Elysia](https://elysiajs.com) (type-safe API with Eden client)   |
-| **Database**     | [Upstash Redis](https://upstash.com) (serverless, with TTL expiry) |
-| **Realtime**     | [Upstash Realtime](https://upstash.com/docs/redis/sdks/ts/realtime)|
-| **Data Fetching**| [TanStack Query](https://tanstack.com/query)                       |
-| **Font**         | [JetBrains Mono](https://www.jetbrains.com/lp/mono/)              |
 
 ---
 
@@ -44,7 +64,6 @@ Create anonymous, encrypted chat rooms that automatically destroy themselves —
 ### Prerequisites
 
 - [Node.js](https://nodejs.org) (v18+)
-- [npm](https://www.npmjs.com/) (or yarn / pnpm / bun)
 - An [Upstash](https://upstash.com) Redis database
 
 ### 1. Clone the repository
@@ -67,6 +86,8 @@ Create a `.env` file in the root directory:
 ```env
 UPSTASH_REDIS_REST_URL=your_upstash_redis_url
 UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
+# Optional: Public URL for copy-link feature in production
+NEXT_PUBLIC_APP_URL=https://your-domain.com
 ```
 
 ### 4. Run the development server
@@ -75,7 +96,7 @@ UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to start chatting.
+Open [http://localhost:3000](http://localhost:3000) to create your first secure room.
 
 ---
 
@@ -84,62 +105,27 @@ Open [http://localhost:3000](http://localhost:3000) to start chatting.
 ```
 src/
 ├── app/
-│   ├── api/              # Elysia API routes (rooms, messages, presence, typing)
-│   │   ├── [[...slugs]]/ # Catch-all API handler + auth middleware
-│   │   └── realtime/     # Upstash Realtime SSE endpoint
-│   ├── room/[roomId]/    # Chat room page
-│   ├── page.tsx          # Lobby — create or join rooms
-│   ├── layout.tsx        # Root layout with metadata & providers
-│   └── globals.css       # Global styles & animations
-├── components/
-│   └── providers.tsx     # TanStack Query provider
-├── hooks/
-│   └── use-username.ts   # Anonymous username generation & persistence
+│   ├── api/              # Elysia Backend
+│   │   ├── [[...slugs]]/ # API Router + E2EE Auth Middleware
+│   │   └── realtime/     # SSE Endpoint
+│   ├── room/[roomId]/    # Secure Chat Room (Decryption logic here)
+│   └── page.tsx          # Lobby & Join Flow
 ├── lib/
-│   ├── client.ts         # Elysia Eden type-safe API client
-│   ├── redis.ts          # Upstash Redis instance
-│   ├── realtime.ts       # Server-side realtime helper
-│   └── realtime-client.ts# Client-side realtime hook
-└── proxy.ts              # API proxy utility
+│   ├── crypto.ts         # CORE: AES-GCM & PBKDF2 logic
+│   ├── parse-invite.ts   # Secure link parsing utility
+│   ├── redis.ts          # DB Connection
+│   └── realtime.ts       # SSE Helper
+└── proxy.ts              # Middleware for route protection
 ```
 
 ---
 
-## 🔐 How It Works
+## ️ Roadmap
 
-```
-┌─────────────┐       ┌──────────────┐       ┌─────────────────┐
-│   Browser    │──────▶│  Next.js API │──────▶│  Upstash Redis  │
-│  (React UI)  │◀──────│  (Elysia)    │◀──────│  (TTL-based)    │
-└─────────────┘  SSE  └──────────────┘       └─────────────────┘
-                 via Upstash Realtime
-```
-
-1. **Create** — A room is created in Redis with a TTL (time-to-live). A unique room ID is generated via `nanoid`.
-2. **Join** — Users navigate to `/room/{id}`. A session token is stored in a cookie and validated on every API call.
-3. **Chat** — Messages are stored in Redis and broadcast to all connected clients via Upstash Realtime (SSE).
-4. **Self-Destruct** — When the Redis TTL expires, the key is automatically deleted. The room, messages, and all metadata vanish.
-5. **Manual Destroy** — Any participant can trigger instant destruction, wiping all data immediately.
-
----
-
-## �️ Roadmap
-
-Features that can be implemented in the future:
-
-- [ ] **Media Sharing** — Send images, files, and voice notes that self-destruct with the room.
-- [ ] **Custom Room Codes** — Let users pick a memorable room code instead of a random ID.
-- [ ] **Password-Protected Rooms** — Require a passphrase to join a room.
-- [ ] **Read Receipts** — Show when a message has been seen by the other participant.
-- [ ] **Message Reactions** — React to messages with emojis.
-- [ ] **Dark/Light Theme Toggle** — User-selectable theme preference.
-- [ ] **Room Capacity Settings** — Allow the room creator to set a max participant limit (currently 2).
-- [ ] **Markdown Support** — Render messages with bold, italic, code blocks, and links.
-- [ ] **Mobile PWA** — Installable progressive web app with push notifications.
-- [ ] **QR Code Sharing** — Generate a QR code for easy room joining on mobile.
-- [ ] **Sound Notifications** — Audio alerts for new messages and room events.
-- [ ] **Link Previews** — Automatically preview URLs shared in the chat.
-- [ ] **Multi-Language Support** — i18n for global accessibility.
+- [ ] **Secure File Sharing** — Encrypted blob storage for images.
+- [ ] **Burn-on-Read** — Option for messages to disappear immediately after being viewed.
+- [ ] **Voice Notes** — Encrypted audio blobs.
+- [ ] **QR Code Invites** — Scan to join instantly on mobile.
 
 ---
 
@@ -150,5 +136,5 @@ This project is open source and available under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  Built with ⚡ by <a href="https://github.com/Ansh0305">Sirigiri Sai Ansh Raj</a>
+  Built with ⚡ & 🔒 by <a href="https://github.com/Ansh0305">Sirigiri Sai Ansh Raj</a>
 </p>
