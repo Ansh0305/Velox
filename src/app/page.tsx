@@ -5,6 +5,7 @@ import { client } from "@/lib/client";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { parseInvite } from "@/lib/parse-invite";
 
 const Page = () => {
   return (
@@ -56,30 +57,20 @@ function Lobby() {
       }
     },
   });
+  // Join room parsing
   const handleJoin = () => {
     const input = roomCode.trim();
     if (!input) return;
 
-    try {
-      // Check if input is a full URL
-      if (input.startsWith("http") || input.startsWith("https")) {
-        const url = new URL(input);
-        if (url.pathname.startsWith("/room/")) {
-          router.push(url.pathname + url.search);
-          return;
-        }
-      }
+    const { roomId, roomKey } = parseInvite(input);
 
-      // Check if it's a relative path
-      if (input.startsWith("/room/")) {
-        router.push(input);
-        return;
+    if (roomId) {
+      if (roomKey) {
+        router.push(`/room/${roomId}?key=${roomKey}`);
+      } else {
+        router.push(`/room/${roomId}`);
       }
-
-      // Fallback: treat as ID (will likely fail auth without key, but let middleware handle invalid-key)
-      router.push(`/room/${input}`);
-    } catch (error) {
-      // On error, just try pushing as ID
+    } else {
       router.push(`/room/${input}`);
     }
   };
@@ -87,7 +78,6 @@ function Lobby() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
-        {/* ... (Previous alerts remain same, ensuring we don't cut them off) ... */}
         {/* Message Destroyed */}
         {wasDestroyed && (
           <div className="bg-red-950/50 border border-red-900 p-4 text-center">
@@ -224,6 +214,23 @@ function Lobby() {
                 JOIN
               </button>
             </div>
+            {/* Clickboard paste button */}
+            <button
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (text) setRoomCode(text);
+                } catch (e) {
+                  console.error("Failed to read clipboard:", e);
+                }
+              }}
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Paste from clipboard
+            </button>
           </div>
         </div>
 

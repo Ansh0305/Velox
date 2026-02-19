@@ -69,10 +69,6 @@ const Page = () => {
   });
 
   // Decrypted Messages State
-  // We prioritize keeping the 'messages' from react-query as the source of truth, 
-  // but we need to decrypt them for display.
-  // Memoizing decryption could be good, but for now we'll do it on render or effect.
-  // Actually, let's use a derived state or separate list.
   const [displayMessages, setDisplayMessages] = useState<any[]>([]);
 
   useEffect(() => {
@@ -83,12 +79,12 @@ const Page = () => {
         messages.messages.map(async (msg) => {
           try {
             // Try to decrypt. If it fails (e.g. old plaintext message), keep original text or show error.
-            // We can check if it looks like "base64:base64" (colon exists)
+            // check if it looks like "base64:base64" (colon exists)
             if (msg.text.includes(":")) {
               const plain = await decryptMessage(msg.text, cryptoKey);
               return { ...msg, text: plain };
             }
-            return msg; // Assume plaintext for backward compatibility during dev
+            return msg;
           } catch (e) {
             return { ...msg, text: "🔒 Decryption Failed" };
           }
@@ -96,11 +92,6 @@ const Page = () => {
       );
 
       // Merge with system messages
-      // We'll do the merging in the render loop or here. 
-      // Let's just update the list of chat messages.
-      // We need to handle the system messages separately or merge them now.
-      // The original code merged them in render. Let's keep that pattern.
-      // So we just need a way to pass decent decrypted messages to the render.
       setDisplayMessages(decrypted);
     };
 
@@ -111,8 +102,9 @@ const Page = () => {
   // Copy button
   const [copyStatus, setcopyStatus] = useState("COPY");
   const copyLink = () => {
-    const url = `${window.location.origin}/room/${roomId}?key=${roomKey}`;
-    navigator.clipboard.writeText(url);
+    //"VEL-roomid-key"
+    const code = `VEL-${roomId}-${roomKey}`;
+    navigator.clipboard.writeText(code);
     setcopyStatus("COPIED!");
     setTimeout(() => {
       setcopyStatus("COPY");
@@ -187,21 +179,12 @@ const Page = () => {
   // Realtime logic
   useRealtime({
     channels: [roomId],
-    // @ts-ignore - onData is the correct callback
     onData: async (event: any) => {
       const type = event.event;
       const data = event.data;
 
       switch (type) {
         case "chat.message":
-          // When we receive a message in realtime, it is Encrypted.
-          // We can't just refetch() because that's slow. 
-          // We should decrypt it and add it to our list, or refetch and let the effect decrypt it.
-          // For consistency with the implementation plan "Receive (Realtime) -> decrypt -> Display",
-          // The easiest way to ensure consistency is to refetch, which triggers the useQuery effect.
-          // BUT, if we want instant feedback, we can optimistically decrypt.
-          // Let's stick to refetch for simplicity and correctness first, as specified in the previous plan,
-          // OR optimize if needed. The prompt says "Decrypt message.text - Update UI".
           refetch();
           break;
 
@@ -332,7 +315,7 @@ const Page = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 [animation-duration:2s]" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
               </span>
-              🔒 E2E ENCRYPTED
+              🔒 ENCRYPTED
             </span>
           </div>
         </div>
