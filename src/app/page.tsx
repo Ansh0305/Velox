@@ -51,14 +51,43 @@ function Lobby() {
   const { mutate: createRoom, isPending: isCreating } = useMutation({
     mutationFn: async () => {
       const res = await client.room.create.post({ ttl: selectedTTL });
-      if (res.status === 200) {
-        router.push(`/room/${res.data?.roomId}`);
+      if (res.status === 200 && res.data) {
+        router.push(`/room/${res.data.roomId}?key=${res.data.roomKey}`);
       }
     },
   });
+  const handleJoin = () => {
+    const input = roomCode.trim();
+    if (!input) return;
+
+    try {
+      // Check if input is a full URL
+      if (input.startsWith("http") || input.startsWith("https")) {
+        const url = new URL(input);
+        if (url.pathname.startsWith("/room/")) {
+          router.push(url.pathname + url.search);
+          return;
+        }
+      }
+
+      // Check if it's a relative path
+      if (input.startsWith("/room/")) {
+        router.push(input);
+        return;
+      }
+
+      // Fallback: treat as ID (will likely fail auth without key, but let middleware handle invalid-key)
+      router.push(`/room/${input}`);
+    } catch (error) {
+      // On error, just try pushing as ID
+      router.push(`/room/${input}`);
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
+        {/* ... (Previous alerts remain same, ensuring we don't cut them off) ... */}
         {/* Message Destroyed */}
         {wasDestroyed && (
           <div className="bg-red-950/50 border border-red-900 p-4 text-center">
@@ -82,6 +111,14 @@ function Lobby() {
             <p className="text-red-500 text-sm font-bold">ROOM NOT FOUND!</p>
             <p className="text-zinc-500 text-xs mt-1">
               This room may have expired or never existed!
+            </p>
+          </div>
+        )}
+        {error === "invalid-key" && (
+          <div className="bg-red-950/50 border border-red-900 p-4 text-center">
+            <p className="text-red-500 text-sm font-bold">INVALID KEY</p>
+            <p className="text-zinc-500 text-xs mt-1">
+              The room key provided is invalid or missing!
             </p>
           </div>
         )}
@@ -174,13 +211,13 @@ function Lobby() {
                   type="text"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && roomCode.trim() && router.push(`/room/${roomCode.trim()}`)}
-                  placeholder="Paste room code..."
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                  placeholder="Paste room link or ID..."
                   className="w-full bg-zinc-950 border border-zinc-800 p-3 pl-7 text-sm text-zinc-300 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 transition-colors"
                 />
               </div>
               <button
-                onClick={() => roomCode.trim() && router.push(`/room/${roomCode.trim()}`)}
+                onClick={handleJoin}
                 disabled={!roomCode.trim()}
                 className="bg-zinc-100 text-black px-4 py-3 text-sm font-bold hover:bg-zinc-50 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >

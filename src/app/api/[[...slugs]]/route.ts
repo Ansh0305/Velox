@@ -1,7 +1,7 @@
 import { redis } from "@/lib/redis";
 import { Elysia } from "elysia";
 import { nanoid } from "nanoid";
-import { authMiddleware } from "./auth";
+import { authMiddleware, AuthError } from "./auth";
 import { z } from "zod";
 import { Message, realtime } from "@/lib/realtime";
 
@@ -12,6 +12,7 @@ const ALLOWED_TTL = [60 * 2, 60 * 5, 60 * 10];
 const rooms = new Elysia({ prefix: "/room" })
   .post("/create", async ({ body }) => {
     const roomId = nanoid();
+    const roomKey = nanoid(32); // specific key for the room access
 
     // Custom TTL from body, fallback to default
     const ttl = body?.ttl && ALLOWED_TTL.includes(body.ttl) ? body.ttl : ROOM_TTL_SECONDS;
@@ -19,10 +20,11 @@ const rooms = new Elysia({ prefix: "/room" })
     await redis.hset(`meta:${roomId}`, {
       connected: [],
       createAt: Date.now(),
+      key: roomKey
     });
 
     await redis.expire(`meta:${roomId}`, ttl);
-    return { roomId };
+    return { roomId, roomKey };
   }, {
     body: z.object({ ttl: z.number().optional() }).optional(),
   })
@@ -155,7 +157,18 @@ const presence = new Elysia({ prefix: "/presence" })
     },
   );
 
-const app = new Elysia({ prefix: "/api" }).use(rooms).use(messages).use(typing).use(presence);
+const app = new Elysia({ prefix: "/api" })
+  .error({ AuthError })
+  .onError(({ code, error, set }) => {
+    if (code === "AuthError" || (error as Error).name === "AuthError") {
+      set.status = 401;
+      return { error: "Unauthorized" };
+    }
+  })
+  .use(rooms)
+  .use(messages)
+  .use(typing)
+  .use(presence);
 
 export const GET = app.fetch;
 export const POST = app.fetch;

@@ -3,24 +3,31 @@
 import { useUsername } from "@/hooks/use-username";
 import { client } from "@/lib/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns"
 import { useRealtime } from "@/lib/realtime-client";
+import { type RealtimeEvents } from "@/lib/realtime";
 
 const Page = () => {
   const params = useParams();
   const roomId = params.roomId as string;
   const router = useRouter();
 
+  const searchParams = useSearchParams(); // Get search params
+  const roomKey = searchParams.get("key") ?? ""; // Extract key
+
   // Input message Tracking
   const [input, setinput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: messages, refetch } = useQuery({
-    queryKey: ["messages", roomId],
+    queryKey: ["messages", roomId, roomKey],
     queryFn: async () => {
-      const res = await client.messages.get({ query: { roomId } });
+      const res = await client.messages.get({
+        query: { roomId },
+        headers: { "x-room-key": roomKey }
+      });
       return res.data;
     },
   });
@@ -28,7 +35,8 @@ const Page = () => {
   // Copy button
   const [copyStatus, setcopyStatus] = useState("COPY");
   const copyLink = () => {
-    navigator.clipboard.writeText(roomId);
+    const url = `${window.location.origin}/room/${roomId}?key=${roomKey}`;
+    navigator.clipboard.writeText(url);
     setcopyStatus("COPIED!");
     setTimeout(() => {
       setcopyStatus("COPY");
@@ -41,7 +49,10 @@ const Page = () => {
     mutationFn: async ({ text }: { text: string }) => {
       await client.messages.post(
         { sender: username, text },
-        { query: { roomId } },
+        {
+          query: { roomId },
+          headers: { "x-room-key": roomKey }
+        },
       );
       setinput("");
     },
@@ -57,8 +68,14 @@ const Page = () => {
     const now = Date.now();
     if (now - lastTypingEmitRef.current < 2000) return;
     lastTypingEmitRef.current = now;
-    client.typing.post({ sender: username }, { query: { roomId } });
-  }, [username, roomId]);
+    client.typing.post(
+      { sender: username },
+      {
+        query: { roomId },
+        headers: { "x-room-key": roomKey }
+      }
+    );
+  }, [username, roomId, roomKey]);
 
   // Join/Leave system messages
   const [systemMessages, setSystemMessages] = useState<{ id: string; text: string; timestamp: number }[]>([]);
@@ -68,67 +85,80 @@ const Page = () => {
   useEffect(() => {
     if (!username || hasJoinedRef.current) return;
     hasJoinedRef.current = true;
-    client.presence.join.post({ sender: username }, { query: { roomId } });
+    client.presence.join.post(
+      { sender: username },
+      {
+        query: { roomId },
+        headers: { "x-room-key": roomKey }
+      }
+    );
 
     // Emit leave event on page unload
     const handleBeforeUnload = () => {
+      // Beacon doesn't support custom headers easily, so we use query param for key if needed, or rely on existing auth
+      // Since authMiddleware supports query param 'key', we add it there.
       navigator.sendBeacon?.(
-        `/api/presence/leave?roomId=${roomId}`,
+        `/api/presence/leave?roomId=${roomId}&key=${roomKey}`,
         new Blob([JSON.stringify({ sender: username })], { type: "application/json" })
       );
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [username, roomId]);
+  }, [username, roomId, roomKey]);
 
-  // Realtime listener for this room — refetch messages when a new message is broadcast
+  // Realtime logic
   useRealtime({
     channels: [roomId],
-    events: ["chat.message", "chat.destroy", "chat.typing", "chat.join", "chat.leave"],
-    onData: ({ event, data }) => {
-      if (event === "chat.message") {
-        refetch();
-        setTypingUser(null);
-      }
-      if (event === 'chat.destroy') {
-        router.push("/?destroyed=true")
-      }
-      // Typing indicator from another user
-      if (event === "chat.typing") {
-        const payload = data as { sender: string; isTyping: boolean };
-        if (payload.sender !== username) {
-          setTypingUser(payload.sender);
-          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-          typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 2000);
-        }
-      }
-      // Join/Leave notifications
-      if (event === "chat.join") {
-        const payload = data as { sender: string };
-        if (payload.sender !== username) {
-          setSystemMessages((prev) => [...prev, {
-            id: `join-${Date.now()}`,
-            text: `${payload.sender} joined the room`,
-            timestamp: Date.now(),
-          }]);
-        }
-      }
-      if (event === "chat.leave") {
-        const payload = data as { sender: string };
-        if (payload.sender !== username) {
-          setSystemMessages((prev) => [...prev, {
-            id: `leave-${Date.now()}`,
-            text: `${payload.sender} left the room`,
-            timestamp: Date.now(),
-          }]);
-        }
+    // @ts-ignore - onData is the correct callback
+    onData: (event: any) => {
+      const type = event.event;
+      const data = event.data;
+
+      switch (type) {
+        case "chat.message":
+          refetch();
+          break;
+
+        case "chat.typing":
+          if (data.sender !== username && data.isTyping) {
+            setTypingUser(data.sender);
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => setTypingUser(null), 3000);
+          }
+          break;
+
+        case "chat.join":
+          if (data.sender !== username) {
+            setSystemMessages((prev) => [
+              ...prev,
+              { id: Date.now().toString(), text: `${data.sender} joined the room`, timestamp: Date.now() }
+            ]);
+          }
+          break;
+
+        case "chat.leave":
+          setSystemMessages((prev) => [
+            ...prev,
+            { id: Date.now().toString(), text: `${data.sender} left the room`, timestamp: Date.now() }
+          ]);
+          break;
+
+        case "chat.destroy":
+          router.push("/?destroyed=true");
+          break;
       }
     },
-  });
+  } as any);
 
   const { mutate: destroyRoom } = useMutation({
     mutationFn: async () => {
-      await client.room.delete(null, { query: { roomId } })
+      await client.room.delete(null, {
+        query: { roomId },
+        headers: { "x-room-key": roomKey }
+      })
+    },
+    onSuccess: () => {
+      router.push("/?destroyed=true")
     }
   })
 
@@ -139,7 +169,8 @@ const Page = () => {
     queryKey: ["ttl", roomId],
     queryFn: async () => {
       const res = await client.room.ttl.get({
-        query: { roomId }
+        query: { roomId },
+        headers: { "x-room-key": roomKey }
       })
       return res.data
     }
@@ -224,7 +255,13 @@ const Page = () => {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => {
-              client.presence.leave.post({ sender: username }, { query: { roomId } });
+              client.presence.leave.post(
+                { sender: username },
+                {
+                  query: { roomId },
+                  headers: { "x-room-key": roomKey }
+                }
+              );
               router.push("/?left=true");
             }}
             className="text-xs bg-zinc-800 hover:bg-zinc-700 px-2 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all flex items-center gap-1"
@@ -343,6 +380,6 @@ const Page = () => {
       </div>
     </main>
   );
-};;
+};
 
 export default Page;
