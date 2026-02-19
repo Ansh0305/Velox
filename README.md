@@ -23,7 +23,16 @@ Velox is a secure communication tool designed for absolute privacy. Rooms are ep
 
 ---
 
-## 🔐 Security Architecture
+## 🔐 How It Works
+
+```mermaid
+graph LR
+    A[User A] -->|Encrypts| B(Browser)
+    B -->|Sends Ciphertext| C{Relay Server}
+    C -->|Broadcasts| D(Browser)
+    D -->|Decrypts| E[User B]
+    C -.->|Stores| F[(Redis TTL)]
+```
 
 Velox follows a **Zero-Knowledge** architecture. Here is how we secure your data:
 
