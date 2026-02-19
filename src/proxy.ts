@@ -55,9 +55,6 @@ export const proxy = async (req: NextRequest) => {
     });
 
     // Add new token to connected list
-    // Note: There is a race condition here if two users join simultaneously, 
-    // but Redis transactions or Lua scripts would be needed to solve it perfectly.
-    // For this simple app, we just append.
     await redis.hset(`meta:${roomId}`, {
         connected: [...currentConnected, token],
     });

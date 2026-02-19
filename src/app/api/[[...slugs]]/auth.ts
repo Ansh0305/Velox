@@ -31,11 +31,6 @@ export const authMiddleware = new Elysia({
     const roomKey = (headerKey || query.key) as string | undefined;
     const token = (headerToken || cookie["x-auth-token"]?.value) as string | undefined;
 
-    // We relax the token requirement if roomKey is present, or we can use a simpler check.
-    // E2EE relies on roomKey. Token is for identity/rate limiting potentially.
-    // If token is missing, we might default to something or throw.
-    // For now, let's keep it required but allow header source.
-
     if (!roomId) {
       throw new AuthError("Missing roomId");
     }
@@ -54,10 +49,6 @@ export const authMiddleware = new Elysia({
     if (meta.key !== roomKey) {
       throw new AuthError("Invalid room key");
     }
-
-    // Connected check is removed as it was blocking valid requests and not maintained
-    // const connected = Array.isArray(meta.connected) ? meta.connected : [];
-    // if (!connected.includes(token)) { ... }
 
     return { auth: { roomId, token: token || "anonymous", connected: [] } };
   });

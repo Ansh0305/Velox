@@ -10,21 +10,19 @@ const SALT_LENGTH = 16; // bytes
 const IV_LENGTH = 12; // bytes
 const KEY_LENGTH = 256; // bits
 
-/**
- * Generates a cryptographically secure random salt.
- * @returns Base64 encoded salt string
- */
+// Generates a cryptographically secure random salt.
+// returns Base64 encoded salt string
 export function generateSalt(): string {
     const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
     return arrayBufferToBase64(salt);
 }
 
-/**
- * Derives an AES-GCM encryption key from a room key and salt using PBKDF2.
- * @param roomKey The shared room secret key
- * @param saltBase64 The base64 encoded salt unique to the room
- * @returns Promise resolving to a CryptoKey
- */
+
+//  Derives an AES-GCM encryption key from a room key and salt using PBKDF2.
+//  roomKey: The shared room secret key
+//  saltBase64: The base64 encoded salt unique to the room
+//  returns: Promise resolving to a CryptoKey
+
 export async function getDerivedKey(roomKey: string, saltBase64: string): Promise<CryptoKey> {
     const encoder = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey(
@@ -51,12 +49,11 @@ export async function getDerivedKey(roomKey: string, saltBase64: string): Promis
     );
 }
 
-/**
- * Encrypts a text message using AES-GCM.
- * @param text The plaintext message
- * @param key The derived CryptoKey
- * @returns Promise resolving to "base64(iv):base64(ciphertext)"
- */
+// Encrypts a text message using AES-GCM.
+// text: The plaintext message
+// key: The derived CryptoKey
+// returns: Promise resolving to "base64(iv):base64(ciphertext)"
+
 export async function encryptMessage(text: string, key: CryptoKey): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
@@ -77,12 +74,10 @@ export async function encryptMessage(text: string, key: CryptoKey): Promise<stri
     return `${ivBase64}:${ciphertextBase64}`;
 }
 
-/**
- * Decrypts a message using AES-GCM.
- * @param encryptedData The "base64(iv):base64(ciphertext)" string
- * @param key The derived CryptoKey
- * @returns Promise resolving to the plaintext string
- */
+// Decrypts a message using AES-GCM.
+// encryptedData: The "base64(iv):base64(ciphertext)" string
+// key: The derived CryptoKey
+// returns: Promise resolving to the plaintext string
 export async function decryptMessage(encryptedData: string, key: CryptoKey): Promise<string> {
     try {
         const [ivBase64, ciphertextBase64] = encryptedData.split(":");
