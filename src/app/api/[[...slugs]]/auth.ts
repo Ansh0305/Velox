@@ -1,7 +1,7 @@
 import { redis } from "@/lib/redis";
 import Elysia from "elysia";
 
-class AuthError extends Error {
+export class AuthError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AuthError";
@@ -12,25 +12,43 @@ export const authMiddleware = new Elysia({
   name: "auth",
 })
   .error({ AuthError })
-  .onError(({ code, set }) => {
+  .onError(({ code, error, set }) => {
+    console.log("[AuthMiddleware Debug] onError triggered:", code, error);
     if (code === "AuthError") {
       set.status = 401;
-      return { error: "Unauthroized" };
+      return { error: "Unauthorized" };
     }
+    console.error("[AuthMiddleware Error]", code, error);
   })
-  .derive({ as: "scoped" }, async ({query, cookie}) => {
-    const roomId = query.roomId
-    const token = cookie["x-auth-token"].value as string | undefined
+  .derive({ as: "scoped" }, async (context) => {
+    const { query, cookie, headers } = context;
+    const roomId = query.roomId as string | undefined;
 
-    if(!roomId || !token){
-        throw new AuthError("Missing roomId or token.")
+    // Headers can be incoming in different formats depending on the environment
+    const headerKey = (headers as Record<string, any>)["x-room-key"];
+    const headerToken = (headers as Record<string, any>)["x-auth-token"];
+
+    const roomKey = (headerKey || query.key) as string | undefined;
+    const token = (headerToken || cookie["x-auth-token"]?.value) as string | undefined;
+
+    if (!roomId) {
+      throw new AuthError("Missing roomId");
     }
 
-    const connected = await redis.hget<string[]>(`meta:${roomId}`, "connected")
-
-    if (!connected?.includes(token)) {
-        throw new AuthError("Invalid token");
+    // Only check roomKey
+    if (!roomKey) {
+      throw new AuthError("Missing roomKey");
     }
 
-    return {auth: {roomId, token, connected}}
+    const meta = await redis.hgetall<{ connected: string[], key: string }>(`meta:${roomId}`);
+
+    if (!meta) {
+      throw new AuthError("Room not found");
+    }
+
+    if (meta.key !== roomKey) {
+      throw new AuthError("Invalid room key");
+    }
+
+    return { auth: { roomId, token: token || "anonymous", connected: [] } };
   });

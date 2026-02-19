@@ -5,6 +5,7 @@ import { client } from "@/lib/client";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { parseInvite } from "@/lib/parse-invite";
 
 const Page = () => {
   return (
@@ -51,11 +52,29 @@ function Lobby() {
   const { mutate: createRoom, isPending: isCreating } = useMutation({
     mutationFn: async () => {
       const res = await client.room.create.post({ ttl: selectedTTL });
-      if (res.status === 200) {
-        router.push(`/room/${res.data?.roomId}`);
+      if (res.status === 200 && res.data) {
+        router.push(`/room/${res.data.roomId}?key=${res.data.roomKey}`);
       }
     },
   });
+  // Join room parsing
+  const handleJoin = () => {
+    const input = roomCode.trim();
+    if (!input) return;
+
+    const { roomId, roomKey } = parseInvite(input);
+
+    if (roomId) {
+      if (roomKey) {
+        router.push(`/room/${roomId}?key=${roomKey}`);
+      } else {
+        router.push(`/room/${roomId}`);
+      }
+    } else {
+      router.push(`/room/${input}`);
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
@@ -82,6 +101,14 @@ function Lobby() {
             <p className="text-red-500 text-sm font-bold">ROOM NOT FOUND!</p>
             <p className="text-zinc-500 text-xs mt-1">
               This room may have expired or never existed!
+            </p>
+          </div>
+        )}
+        {error === "invalid-key" && (
+          <div className="bg-red-950/50 border border-red-900 p-4 text-center">
+            <p className="text-red-500 text-sm font-bold">INVALID KEY</p>
+            <p className="text-zinc-500 text-xs mt-1">
+              The room key provided is invalid or missing!
             </p>
           </div>
         )}
@@ -174,19 +201,36 @@ function Lobby() {
                   type="text"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && roomCode.trim() && router.push(`/room/${roomCode.trim()}`)}
-                  placeholder="Paste room code..."
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                  placeholder="Paste room link or ID..."
                   className="w-full bg-zinc-950 border border-zinc-800 p-3 pl-7 text-sm text-zinc-300 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 transition-colors"
                 />
               </div>
               <button
-                onClick={() => roomCode.trim() && router.push(`/room/${roomCode.trim()}`)}
+                onClick={handleJoin}
                 disabled={!roomCode.trim()}
                 className="bg-zinc-100 text-black px-4 py-3 text-sm font-bold hover:bg-zinc-50 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 JOIN
               </button>
             </div>
+            {/* Clickboard paste button */}
+            <button
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (text) setRoomCode(text);
+                } catch (e) {
+                  console.error("Failed to read clipboard:", e);
+                }
+              }}
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Paste from clipboard
+            </button>
           </div>
         </div>
 
