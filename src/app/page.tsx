@@ -76,7 +76,25 @@ function Lobby() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 relative">
+      {/* DEMO Buttont */}
+      <a
+        href="https://www.linkedin.com/feed/update/urn:li:activity:7428536818167377921/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed top-5 left-5 z-50 flex items-center gap-2 bg-green-500/15 border border-green-500/40 text-green-400 px-4 py-2 rounded-full text-xs font-bold tracking-wider hover:bg-green-500/25 hover:border-green-500/60 hover:text-green-300 hover:scale-105 transition-all duration-300 cursor-pointer backdrop-blur-sm group"
+      >
+        <svg
+          className="w-3.5 h-3.5 group-hover:scale-110 transition-transform duration-300"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        DEMO
+        <span className="absolute inset-0 rounded-full bg-green-500/10 animate-pulse pointer-events-none" />
+      </a>
+
       <div className="w-full max-w-md space-y-8">
         {/* Message Destroyed */}
         {wasDestroyed && (
@@ -139,8 +157,7 @@ function Lobby() {
 
               <div className="flex items-center gap-3">
                 <div
-                  className="flex-1 bg-zinc-950 border border-zinc-800
-                p-3 text-sm text-zinc-400 font-mono"
+                  className="flex-1 bg-zinc-950 border border-zinc-800 p-3 text-sm text-zinc-400 font-mono"
                 >
                   {username}
                 </div>
