@@ -102,8 +102,8 @@ const Page = () => {
   // Copy button
   const [copyStatus, setcopyStatus] = useState("COPY");
   const copyLink = () => {
-    //"VEL-roomid-key"
-    const code = `VEL-${roomId}-${roomKey}`;
+    //"VEL-roomid_KEY_key" — using _KEY_ as separator since nanoid can contain hyphens
+    const code = `VEL-${roomId}_KEY_${roomKey}`;
     navigator.clipboard.writeText(code);
     setcopyStatus("COPIED!");
     setTimeout(() => {
