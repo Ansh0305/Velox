@@ -41,11 +41,20 @@ export function parseInvite(input: string): { roomId: string | null; roomKey: st
 
         // VEL code parsing (only if URL parsing didn't work)
         if (!roomId && trimmed.startsWith("VEL-")) {
-            const parts = trimmed.slice(4).split("-");
+            const payload = trimmed.slice(4); // Remove "VEL-"
 
-            if (parts.length >= 2) {
-                roomKey = parts.pop()!;
-                roomId = parts.join("-");
+            // New format: VEL-{roomId}_KEY_{roomKey}
+            if (payload.includes("_KEY_")) {
+                const keyIndex = payload.indexOf("_KEY_");
+                roomId = payload.slice(0, keyIndex);
+                roomKey = payload.slice(keyIndex + 5); // 5 = "_KEY_".length
+            } else {
+                // Legacy fallback: VEL-{roomId}-{roomKey} (unreliable if IDs contain hyphens)
+                const parts = payload.split("-");
+                if (parts.length >= 2) {
+                    roomKey = parts.pop()!;
+                    roomId = parts.join("-");
+                }
             }
         }
 
